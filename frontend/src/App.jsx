@@ -1,9 +1,4 @@
 import { useState } from 'react'
-// import countries from "i18n-iso-countries";
-// import en from "i18n-iso-countries/langs/en.json";
-// countries.registerLocale(en);
-// const countryCodes = Object.keys(countries.getNames("en"));
-
 import countries from "./data/countries";
 import './App.css'
 
@@ -13,9 +8,14 @@ function App() {
   const [flags, setFlags] = useState(() => getRandomFlags(countryCodes, 4));
   const [hasStarted, setHasStarted] = useState(false);
 
-  function getNewFlags() {
+  function startGame() {
     setFlags(getRandomFlags(countryCodes, 4));
     setHasStarted(true);
+  }
+
+  function resetGame() {
+    setHasStarted(false);
+    setFlags(getRandomFlags(countryCodes, 4));
   }
 
   return (
@@ -28,6 +28,20 @@ function App() {
           </p>
         </div>
 
+        <div className="gameControls">
+          <button
+            className="controlButton"
+            onClick={startGame}>
+            Start
+          </button>
+
+          <button
+            className="controlButton"
+            onClick={resetGame}>
+            Reset
+          </button>
+        </div>
+
         {hasStarted && (
           <div className="flags">
             {flags.map((code) => (
@@ -35,16 +49,8 @@ function App() {
             ))}
           </div>
         )}
-
-        <button
-          className="startGame" 
-          onClick={getNewFlags}>
-          Start
-        </button>
-
       </section>
 
-      <section id="spacer"></section>
     </>
   )
 }
@@ -78,4 +84,3 @@ function getRandomFlags(list, count = 4) {
 }
 
 export default App
-
