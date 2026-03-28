@@ -1,8 +1,8 @@
 # Flag Speedrun
 
-Flag Speedrun is a fast flag quiz game with a local leaderboard.
+Flag Speedrun is a fast flag quiz game with a leaderboard.
 
-Players choose a round count, race through the flags, and submit their result with a username. The leaderboard ranks players by correct answers first, then time.
+Players choose a round category, trying to guess the correct flag as fast as possible, then submit their time with a username. 
 
 ## Screenshots
 
@@ -18,22 +18,22 @@ npm install
 npm --prefix frontend install
 ```
 
-Run the backend:
+Build the frontend:
+
+```bash
+npm run build
+```
+
+Run the app:
 
 ```bash
 npm run start:backend
 ```
 
-Run the frontend:
-
-```bash
-npm --prefix frontend run dev
-```
-
 Open:
 
 ```text
-http://localhost:5173
+http://localhost:3001
 ```
 
 ## Local Network
@@ -41,12 +41,24 @@ http://localhost:5173
 Example:
 
 ```bash
-CORS_ORIGIN=http://192.168.1.11:5173 npm run start:backend
-npm --prefix frontend run dev -- --host 0.0.0.0
+npm run build
+HOST=0.0.0.0 PORT=3001 npm run start:backend
 ```
 
 Then open:
 
 ```text
-http://192.168.1.11:5173
+http://192.168.1.11:3001
+```
+
+## Service
+
+There is a `systemd` service template in `deploy/flag-speedrun.service`.
+
+Quick install on a Linux server:
+
+```bash
+npm install
+npm --prefix frontend install
+./deploy/install-service.sh /opt/flag_speedrun flag-speedrun
 ```

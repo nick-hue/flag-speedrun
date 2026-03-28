@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "build": "npm --prefix frontend run build",
     "dev:backend": "node backend/server.js",
     "start:backend": "node backend/server.js"
   },

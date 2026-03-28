@@ -1,11 +1,13 @@
+import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { extname, join, normalize, resolve } from 'node:path';
 import { URL } from 'node:url';
 import { createLeaderboardEntry, listLeaderboardEntries } from './db.js';
 
 const port = Number(process.env.PORT) || 3001;
 const host = process.env.HOST || '0.0.0.0';
 const maxRequestBodySize = 1_000_000;
-const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+const allowedOrigin = process.env.CORS_ORIGIN || '*';
 const sessionTtlMs = 60 * 60 * 1000;
 const postRateLimit = {
   maxRequests: 25,
@@ -13,6 +15,7 @@ const postRateLimit = {
 };
 const gameSessions = new Map();
 const rateLimitByIp = new Map();
+const frontendDistDirectory = resolve('frontend/dist');
 
 const server = createServer(async (request, response) => {
   try {
@@ -113,6 +116,14 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      const didServeStaticAsset = await tryServeStaticAsset(requestUrl.pathname, response, request.method);
+
+      if (didServeStaticAsset) {
+        return;
+      }
+    }
+
     sendJson(response, 404, { error: 'Route not found.' });
   } catch (error) {
     if (error instanceof RequestTooLargeError) {
@@ -141,10 +152,10 @@ server.on('error', (error) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Leaderboard API listening on http://localhost:${port}`);
+  console.log(`Flag Speedrun listening on http://localhost:${port}`);
   console.log(`Server bind address: http://${host}:${port}`);
-  console.log(`Allowed frontend origin: ${allowedOrigin}`);
-  console.log(`Share this URL on your local network: ${allowedOrigin}`);
+  console.log(`CORS origin: ${allowedOrigin}`);
+  console.log(`Open the app at: http://localhost:${port}`);
   console.log(`API health check: http://localhost:${port}/api/health`);
 });
 
@@ -157,6 +168,47 @@ function setCorsHeaders(response) {
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(payload));
+}
+
+async function tryServeStaticAsset(pathname, response, method) {
+  const relativePath = pathname === '/' ? 'index.html' : pathname.slice(1);
+  const normalizedPath = normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '');
+  const assetPath = join(frontendDistDirectory, normalizedPath);
+
+  try {
+    const fileContents = await readFile(assetPath);
+
+    response.writeHead(200, { 'Content-Type': getContentType(assetPath) });
+
+    if (method === 'HEAD') {
+      response.end();
+      return true;
+    }
+
+    response.end(fileContents);
+    return true;
+  } catch (error) {
+    if (pathname.startsWith('/api/')) {
+      return false;
+    }
+
+    try {
+      const indexPath = join(frontendDistDirectory, 'index.html');
+      const indexContents = await readFile(indexPath);
+
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+
+      if (method === 'HEAD') {
+        response.end();
+        return true;
+      }
+
+      response.end(indexContents);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 async function readJsonBody(request) {
@@ -298,6 +350,31 @@ function checkRateLimit(clientIp) {
 
 function getClientIp(request) {
   return request.socket.remoteAddress || 'unknown';
+}
+
+function getContentType(filePath) {
+  const extension = extname(filePath).toLowerCase();
+
+  switch (extension) {
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.ico':
+      return 'image/x-icon';
+    case '.js':
+      return 'text/javascript; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.png':
+      return 'image/png';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
 }
 
 class RequestTooLargeError extends Error {}
