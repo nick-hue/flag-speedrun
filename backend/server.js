@@ -3,12 +3,21 @@ import { URL } from 'node:url';
 import { createLeaderboardEntry, listLeaderboardEntries } from './db.js';
 
 const port = Number(process.env.PORT) || 3001;
+const host = process.env.HOST || '0.0.0.0';
 const maxRequestBodySize = 1_000_000;
 const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+const sessionTtlMs = 60 * 60 * 1000;
+const postRateLimit = {
+  maxRequests: 25,
+  windowMs: 60 * 1000,
+};
+const gameSessions = new Map();
+const rateLimitByIp = new Map();
 
 const server = createServer(async (request, response) => {
   try {
     const requestUrl = new URL(request.url || '/', `http://${request.headers.host}`);
+    const clientIp = getClientIp(request);
 
     setCorsHeaders(response);
 
@@ -20,6 +29,32 @@ const server = createServer(async (request, response) => {
 
     if (requestUrl.pathname === '/api/health' && request.method === 'GET') {
       sendJson(response, 200, { ok: true });
+      return;
+    }
+
+    if (requestUrl.pathname === '/api/sessions' && request.method === 'POST') {
+      if (!checkRateLimit(clientIp)) {
+        sendJson(response, 429, { error: 'Too many requests. Please wait a moment and try again.' });
+        return;
+      }
+
+      const body = await readJsonBody(request);
+      const validationError = validateSessionRequest(body);
+
+      if (validationError) {
+        sendJson(response, 400, { error: validationError });
+        return;
+      }
+
+      const session = createGameSession(body.rounds);
+
+      sendJson(response, 201, {
+        session: {
+          id: session.id,
+          rounds: session.rounds,
+          expiresAt: session.expiresAt,
+        },
+      });
       return;
     }
 
@@ -42,6 +77,11 @@ const server = createServer(async (request, response) => {
     }
 
     if (requestUrl.pathname === '/api/leaderboard' && request.method === 'POST') {
+      if (!checkRateLimit(clientIp)) {
+        sendJson(response, 429, { error: 'Too many requests. Please wait a moment and try again.' });
+        return;
+      }
+
       const body = await readJsonBody(request);
       const validationError = validateLeaderboardEntry(body);
 
@@ -50,10 +90,22 @@ const server = createServer(async (request, response) => {
         return;
       }
 
+      const session = consumeGameSession(body.sessionId);
+
+      if (!session) {
+        sendJson(response, 400, { error: 'Session is missing, expired, or already used.' });
+        return;
+      }
+
+      if (body.correctAnswers > session.rounds) {
+        sendJson(response, 400, { error: 'correctAnswers cannot be greater than the session round count.' });
+        return;
+      }
+
       const entry = createLeaderboardEntry({
         username: body.username.trim(),
-        rounds: body.rounds,
-        timeCentiseconds: body.timeCentiseconds,
+        rounds: session.rounds,
+        timeCentiseconds: getElapsedCentiseconds(session.startedAt),
         correctAnswers: body.correctAnswers,
       });
 
@@ -88,11 +140,12 @@ server.on('error', (error) => {
   throw error;
 });
 
-server.listen(port, () => {
+server.listen(port, host, () => {
   console.log(`Leaderboard API listening on http://localhost:${port}`);
+  console.log(`Server bind address: http://${host}:${port}`);
   console.log(`Allowed frontend origin: ${allowedOrigin}`);
   console.log(`Share this URL on your local network: ${allowedOrigin}`);
-  console.log(`API health check: ${allowedOrigin}/api/health`);
+  console.log(`API health check: http://localhost:${port}/api/health`);
 });
 
 function setCorsHeaders(response) {
@@ -133,6 +186,10 @@ function validateLeaderboardEntry(body) {
     return 'Request body must be a JSON object.';
   }
 
+  if (typeof body.sessionId !== 'string' || !body.sessionId.trim()) {
+    return 'sessionId is required.';
+  }
+
   if (typeof body.username !== 'string') {
     return 'username is required.';
   }
@@ -147,20 +204,20 @@ function validateLeaderboardEntry(body) {
     return 'username must be 24 characters or fewer.';
   }
 
-  if (!Number.isInteger(body.rounds) || body.rounds <= 0) {
-    return 'rounds must be a positive integer.';
-  }
-
-  if (!Number.isInteger(body.timeCentiseconds) || body.timeCentiseconds <= 0) {
-    return 'timeCentiseconds must be a positive integer.';
-  }
-
   if (!Number.isInteger(body.correctAnswers) || body.correctAnswers < 0) {
     return 'correctAnswers must be a non-negative integer.';
   }
 
-  if (body.correctAnswers > body.rounds) {
-    return 'correctAnswers cannot be greater than rounds.';
+  return null;
+}
+
+function validateSessionRequest(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return 'Request body must be a JSON object.';
+  }
+
+  if (!Number.isInteger(body.rounds) || body.rounds <= 0) {
+    return 'rounds must be a positive integer.';
   }
 
   return null;
@@ -178,6 +235,69 @@ function parseOptionalPositiveInteger(value) {
   }
 
   return parsedValue;
+}
+
+function createGameSession(rounds) {
+  cleanupExpiredSessions();
+
+  const session = {
+    id: crypto.randomUUID(),
+    rounds,
+    startedAt: Date.now(),
+    expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
+  };
+
+  gameSessions.set(session.id, session);
+
+  return session;
+}
+
+function consumeGameSession(sessionId) {
+  cleanupExpiredSessions();
+
+  const session = gameSessions.get(sessionId);
+
+  if (!session) {
+    return null;
+  }
+
+  gameSessions.delete(sessionId);
+  return session;
+}
+
+function cleanupExpiredSessions() {
+  const now = Date.now();
+
+  for (const [sessionId, session] of gameSessions.entries()) {
+    if (new Date(session.expiresAt).getTime() <= now) {
+      gameSessions.delete(sessionId);
+    }
+  }
+}
+
+function getElapsedCentiseconds(startedAt) {
+  return Math.max(1, Math.floor((Date.now() - startedAt) / 10));
+}
+
+function checkRateLimit(clientIp) {
+  const now = Date.now();
+  const requestTimestamps = rateLimitByIp.get(clientIp) ?? [];
+  const recentRequests = requestTimestamps.filter(
+    (timestamp) => now - timestamp < postRateLimit.windowMs,
+  );
+
+  if (recentRequests.length >= postRateLimit.maxRequests) {
+    rateLimitByIp.set(clientIp, recentRequests);
+    return false;
+  }
+
+  recentRequests.push(now);
+  rateLimitByIp.set(clientIp, recentRequests);
+  return true;
+}
+
+function getClientIp(request) {
+  return request.socket.remoteAddress || 'unknown';
 }
 
 class RequestTooLargeError extends Error {}

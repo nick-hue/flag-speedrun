@@ -20,6 +20,7 @@ function App() {
   const [completedRounds, setCompletedRounds] = useState(0)
   const [elapsedCentiseconds, setElapsedCentiseconds] = useState(0)
   const [completedRun, setCompletedRun] = useState(null)
+  const [activeSessionId, setActiveSessionId] = useState(null)
   const [username, setUsername] = useState('')
   const [submitState, setSubmitState] = useState('idle')
   const [submitMessage, setSubmitMessage] = useState('')
@@ -56,20 +57,43 @@ function App() {
     void loadLeaderboard(selectedRounds)
   }, [selectedRounds])
 
-  function startGame() {
-    const nextTargetQueue = getRandomFlags(countryCodes, selectedRounds)
-
-    setTargetQueue(nextTargetQueue)
-    setNextRound(nextTargetQueue[0])
-    setCorrectAnswers(0)
-    setCompletedRounds(0)
-    setIsFinished(false)
-    setElapsedCentiseconds(0)
-    setCompletedRun(null)
+  async function startGame() {
     setSubmitState('idle')
     setSubmitMessage('')
-    setSubmittedEntryId(null)
-    setHasStarted(true)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rounds: selectedRounds,
+        }),
+      })
+
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Could not start a new game.')
+      }
+
+      const nextTargetQueue = getRandomFlags(countryCodes, selectedRounds)
+
+      setActiveSessionId(payload.session.id)
+      setTargetQueue(nextTargetQueue)
+      setNextRound(nextTargetQueue[0])
+      setCorrectAnswers(0)
+      setCompletedRounds(0)
+      setIsFinished(false)
+      setElapsedCentiseconds(0)
+      setCompletedRun(null)
+      setSubmittedEntryId(null)
+      setHasStarted(true)
+    } catch (error) {
+      setSubmitState('error')
+      setSubmitMessage(error.message || 'Could not start a new game.')
+    }
   }
 
   function resetGame() {
@@ -82,6 +106,7 @@ function App() {
     setFlags([])
     setRandomFlag(null)
     setCompletedRun(null)
+    setActiveSessionId(null)
     setSubmitState('idle')
     setSubmitMessage('')
     setSubmittedEntryId(null)
@@ -127,7 +152,7 @@ function App() {
   }
 
   async function handleScoreSubmit() {
-    if (!isFinished || !completedRun || submitState === 'submitting' || submittedEntryId) {
+    if (!isFinished || !completedRun || !activeSessionId || submitState === 'submitting' || submittedEntryId) {
       return
     }
 
@@ -149,9 +174,8 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          sessionId: activeSessionId,
           username: trimmedUsername,
-          rounds: completedRun.rounds,
-          timeCentiseconds: completedRun.timeCentiseconds,
           correctAnswers: completedRun.correctAnswers,
         }),
       })
@@ -165,6 +189,12 @@ function App() {
       setSubmitState('success')
       setSubmitMessage('Score submitted. You are on the board.')
       setSubmittedEntryId(payload.entry.id)
+      setCompletedRun({
+        rounds: payload.entry.rounds,
+        timeCentiseconds: payload.entry.timeCentiseconds,
+        correctAnswers: payload.entry.correctAnswers,
+      })
+      setActiveSessionId(null)
       await loadLeaderboard(completedRun.rounds)
     } catch (error) {
       setSubmitState('error')
@@ -177,7 +207,7 @@ function App() {
     setLeaderboardMessage('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/leaderboard?rounds=${roundCount}&limit=10`)
+      const response = await fetch(`${API_BASE_URL}/api/leaderboard?rounds=${roundCount}&limit=5`)
       const payload = await response.json()
 
       if (!response.ok) {
@@ -226,6 +256,10 @@ function App() {
         </button>
       </div>
 
+      {!hasStarted && !isFinished && submitMessage && submitState === 'error' && (
+        <p className="submitMessage submitMessageError">{submitMessage}</p>
+      )}
+
       {hasStarted && (
         <div className="gameStatus">
           <h2 className="timer">Time: {formatTime(elapsedCentiseconds)}</h2>
@@ -273,7 +307,9 @@ function App() {
               />
               <button
                 className="controlButton"
-                disabled={submitState === 'submitting' || Boolean(submittedEntryId)}
+                disabled={
+                  submitState === 'submitting' || Boolean(submittedEntryId) || !activeSessionId
+                }
                 onClick={handleScoreSubmit}
               >
                 Submit Score
@@ -290,7 +326,7 @@ function App() {
         <div className="leaderboardHeader">
           <div>
             <p className="leaderboardEyebrow">Leaderboard</p>
-            <h2 id="leaderboard-title">{selectedRounds}-Round Top 10</h2>
+            <h2 id="leaderboard-title">{selectedRounds}-Round Top 5</h2>
           </div>
           <Trophy className="leaderboardIcon" aria-hidden="true" />
         </div>

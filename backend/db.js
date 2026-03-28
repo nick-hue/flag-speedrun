@@ -42,7 +42,7 @@ const selectLeaderboardStatement = database.prepare(`
     created_at AS createdAt
   FROM leaderboard_entries
   WHERE rounds = COALESCE(?, rounds)
-  ORDER BY time_centiseconds ASC, correct_answers DESC, created_at ASC
+  ORDER BY correct_answers DESC, time_centiseconds ASC, created_at ASC
   LIMIT ?
 `);
 
