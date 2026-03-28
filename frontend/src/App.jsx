@@ -38,12 +38,13 @@ function App() {
     }
 
     activeGameRef.current?.scrollIntoView({
-      behavior: 'smooth',
+      behavior: 'instant',
       block: 'center',
     });
   }, [hasStarted, randomFlag]);
 
   function startGame() {
+    // selects the correct [selectedRounds] (amount) flags for this session
     const nextTargetQueue = getRandomFlags(countryCodes, selectedRounds);
 
     setTargetQueue(nextTargetQueue);
@@ -193,11 +194,6 @@ function FlagButton({ country, onPick }) {
       <FlagImage country={country} />
     </button>
   );
-}
-
-function getRandomItem(list) {
-  const randomIndex = Math.floor(Math.random() * list.length);
-  return list[randomIndex];
 }
 
 function getRandomFlags(list, count = 4) {

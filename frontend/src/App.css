@@ -111,6 +111,9 @@
   margin: 0;
   font-size: clamp(2rem, 2.4vw, 2.6rem);
   text-align: center;
+  color: #e0e0e0;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 .targetCardFinished {
