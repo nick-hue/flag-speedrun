@@ -1,4 +1,9 @@
 {
+  "type": "module",
+  "scripts": {
+    "dev:backend": "node backend/server.js",
+    "start:backend": "node backend/server.js"
+  },
   "dependencies": {
     "i18n-iso-countries": "^7.14.0"
   }

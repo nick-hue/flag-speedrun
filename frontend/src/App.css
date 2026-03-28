@@ -120,6 +120,12 @@
   background: color-mix(in srgb, #32b36b 18%, white 82%);
 }
 
+.finishedPanel {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 720px);
+}
+
 .activeGame {
   display: grid;
   justify-items: center;
@@ -169,6 +175,155 @@
   object-fit: contain;
 }
 
+.submitCard {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  padding: 22px 24px;
+  border-radius: 22px;
+  border: 2px solid color-mix(in srgb, var(--accent-border) 45%, transparent);
+  background: color-mix(in srgb, var(--bg) 86%, var(--accent-bg) 14%);
+  box-sizing: border-box;
+}
+
+.submitLabel {
+  color: var(--text-h);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.submitRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.usernameInput {
+  flex: 1 1 260px;
+  min-width: 0;
+  border-radius: 12px;
+  border: 2px solid color-mix(in srgb, var(--accent-border) 60%, transparent);
+  padding: 14px 16px;
+  font: inherit;
+  background: color-mix(in srgb, var(--bg) 92%, white 8%);
+  color: var(--text-h);
+}
+
+.usernameInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.submitMessage {
+  text-align: left;
+  font-size: 16px;
+}
+
+.submitMessageSuccess {
+  color: #1f8b4c;
+}
+
+.submitMessageError {
+  color: #d13d58;
+}
+
+.leaderboardPanel {
+  width: min(100%, 720px);
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-bg) 70%, transparent), transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 86%, white 14%), color-mix(in srgb, var(--bg) 96%, var(--accent-bg) 4%));
+  border: 1px solid color-mix(in srgb, var(--accent-border) 40%, transparent);
+  box-shadow: 0 16px 32px color-mix(in srgb, black 10%, transparent);
+  box-sizing: border-box;
+}
+
+.leaderboardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+
+.leaderboardEyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.leaderboardIcon {
+  width: 34px;
+  height: 34px;
+  color: var(--accent);
+}
+
+.leaderboardMessage {
+  text-align: left;
+}
+
+.leaderboardList {
+  display: grid;
+  gap: 12px;
+}
+
+.leaderboardEntry {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg) 90%, white 10%);
+  border: 1px solid color-mix(in srgb, var(--accent-border) 24%, transparent);
+}
+
+.leaderboardEntryHighlight {
+  border-color: color-mix(in srgb, #32b36b 70%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, #32b36b 20%, transparent);
+}
+
+.leaderboardRank,
+.leaderboardName,
+.leaderboardMeta,
+.leaderboardTime {
+  margin: 0;
+}
+
+.leaderboardRank {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.leaderboardEntryBody {
+  display: grid;
+  gap: 4px;
+}
+
+.leaderboardName {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.leaderboardMeta {
+  font-size: 15px;
+}
+
+.leaderboardTime {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
 #center {
   display: flex;
   flex-direction: column;
@@ -181,5 +336,29 @@
   @media (max-width: 1024px) {
     padding: 32px 20px 24px;
     gap: 22px;
+  }
+}
+
+@media (max-width: 720px) {
+  .flags {
+    gap: 14px;
+  }
+
+  .flagImage {
+    width: 120px;
+    height: 120px;
+  }
+
+  .submitRow,
+  .leaderboardEntry {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboardEntry {
+    gap: 10px;
+  }
+
+  .leaderboardTime {
+    font-size: 18px;
   }
 }
