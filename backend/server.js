@@ -78,8 +78,21 @@ const server = createServer(async (request, response) => {
   }
 });
 
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${port} is already in use.`);
+    console.error(`Try: PORT=${port + 1} npm run start:backend`);
+    process.exit(1);
+  }
+
+  throw error;
+});
+
 server.listen(port, () => {
   console.log(`Leaderboard API listening on http://localhost:${port}`);
+  console.log(`Allowed frontend origin: ${allowedOrigin}`);
+  console.log(`Share this URL on your local network: ${allowedOrigin}`);
+  console.log(`API health check: ${allowedOrigin}/api/health`);
 });
 
 function setCorsHeaders(response) {
