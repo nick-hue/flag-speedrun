@@ -176,6 +176,7 @@ function App() {
         body: JSON.stringify({
           sessionId: activeSessionId,
           username: trimmedUsername,
+          timeCentiseconds: completedRun.timeCentiseconds,
           correctAnswers: completedRun.correctAnswers,
         }),
       })

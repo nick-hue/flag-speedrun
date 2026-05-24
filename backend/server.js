@@ -105,10 +105,17 @@ const server = createServer(async (request, response) => {
         return;
       }
 
+      const serverElapsed = getElapsedCentiseconds(session.startedAt);
+
+      if (body.timeCentiseconds > serverElapsed) {
+        sendJson(response, 400, { error: 'Submitted time exceeds session duration.' });
+        return;
+      }
+
       const entry = createLeaderboardEntry({
         username: body.username.trim(),
         rounds: session.rounds,
-        timeCentiseconds: getElapsedCentiseconds(session.startedAt),
+        timeCentiseconds: body.timeCentiseconds,
         correctAnswers: body.correctAnswers,
       });
 
@@ -254,6 +261,10 @@ function validateLeaderboardEntry(body) {
 
   if (username.length > 24) {
     return 'username must be 24 characters or fewer.';
+  }
+
+  if (!Number.isInteger(body.timeCentiseconds) || body.timeCentiseconds <= 0) {
+    return 'timeCentiseconds must be a positive integer.';
   }
 
   if (!Number.isInteger(body.correctAnswers) || body.correctAnswers < 0) {
