@@ -33,16 +33,24 @@ const insertEntryStatement = database.prepare(`
 `);
 
 const selectLeaderboardStatement = database.prepare(`
-  SELECT
-    id,
-    username,
-    rounds,
-    time_centiseconds AS timeCentiseconds,
-    correct_answers AS correctAnswers,
-    created_at AS createdAt
-  FROM leaderboard_entries
-  WHERE rounds = COALESCE(?, rounds)
-  ORDER BY correct_answers DESC, time_centiseconds ASC, created_at ASC
+  SELECT id, username, rounds, timeCentiseconds, correctAnswers, createdAt
+  FROM (
+    SELECT
+      id,
+      username,
+      rounds,
+      time_centiseconds AS timeCentiseconds,
+      correct_answers AS correctAnswers,
+      created_at AS createdAt,
+      ROW_NUMBER() OVER (
+        PARTITION BY username
+        ORDER BY correct_answers DESC, time_centiseconds ASC, created_at ASC
+      ) AS rn
+    FROM leaderboard_entries
+    WHERE rounds = COALESCE(?, rounds)
+  )
+  WHERE rn = 1
+  ORDER BY correctAnswers DESC, timeCentiseconds ASC, createdAt ASC
   LIMIT ?
 `);
 

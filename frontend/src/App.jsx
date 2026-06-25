@@ -352,7 +352,7 @@ function App() {
                 <div className="leaderboardEntryBody">
                   <p className="leaderboardName">{entry.username}</p>
                   <p className="leaderboardMeta">
-                    {entry.correctAnswers}/{entry.rounds} correct
+                    {entry.correctAnswers}/{entry.rounds} correct · {formatTimestamp(entry.createdAt)}
                   </p>
                 </div>
                 <p className="leaderboardTime">{formatTime(entry.timeCentiseconds)}</p>
@@ -411,6 +411,11 @@ function getCountryName(code, countryList) {
 
 function getElapsedCentiseconds(startTime) {
   return Math.floor((Date.now() - startTime) / 10)
+}
+
+function formatTimestamp(createdAt) {
+  // SQLite CURRENT_TIMESTAMP is UTC ("YYYY-MM-DD HH:MM:SS"); render in local time.
+  return new Date(`${createdAt} UTC`).toLocaleString()
 }
 
 function formatTime(totalCentiseconds) {
