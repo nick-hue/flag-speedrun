@@ -15,7 +15,8 @@ const postRateLimit = {
 };
 const gameSessions = new Map();
 const rateLimitByIp = new Map();
-const frontendDistDirectory = resolve('frontend/dist');
+const frontendDistDirectory = resolve(import.meta.dirname, '../frontend/dist');
+const staticAssetCache = new Map();
 
 const server = createServer(async (request, response) => {
   try {
@@ -182,40 +183,69 @@ async function tryServeStaticAsset(pathname, response, method) {
   const normalizedPath = normalize(relativePath).replace(/^(\.\.(\/|\\|$))+/, '');
   const assetPath = join(frontendDistDirectory, normalizedPath);
 
-  try {
-    const fileContents = await readFile(assetPath);
+  const asset = await readStaticAsset(assetPath);
 
-    response.writeHead(200, { 'Content-Type': getContentType(assetPath) });
-
-    if (method === 'HEAD') {
-      response.end();
-      return true;
-    }
-
-    response.end(fileContents);
+  if (asset) {
+    serveAsset(response, method, asset, normalizedPath);
     return true;
-  } catch (error) {
-    if (pathname.startsWith('/api/')) {
-      return false;
-    }
-
-    try {
-      const indexPath = join(frontendDistDirectory, 'index.html');
-      const indexContents = await readFile(indexPath);
-
-      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-
-      if (method === 'HEAD') {
-        response.end();
-        return true;
-      }
-
-      response.end(indexContents);
-      return true;
-    } catch {
-      return false;
-    }
   }
+
+  if (pathname.startsWith('/api/')) {
+    return false;
+  }
+
+  const indexAsset = await readStaticAsset(join(frontendDistDirectory, 'index.html'));
+
+  if (indexAsset) {
+    serveAsset(response, method, indexAsset, 'index.html');
+    return true;
+  }
+
+  return false;
+}
+
+async function readStaticAsset(assetPath) {
+  const cached = staticAssetCache.get(assetPath);
+
+  if (cached) {
+    return cached;
+  }
+
+  try {
+    const asset = {
+      contents: await readFile(assetPath),
+      contentType: getContentType(assetPath),
+    };
+
+    staticAssetCache.set(assetPath, asset);
+    return asset;
+  } catch {
+    return null;
+  }
+}
+
+function serveAsset(response, method, asset, normalizedPath) {
+  response.writeHead(200, {
+    'Content-Type': asset.contentType,
+    'Cache-Control': getCacheControl(normalizedPath),
+  });
+
+  if (method === 'HEAD') {
+    response.end();
+    return;
+  }
+
+  response.end(asset.contents);
+}
+
+function getCacheControl(normalizedPath) {
+  // Vite emits content-hashed files under assets/, so they can be cached forever.
+  // Everything else (notably index.html) must be revalidated to pick up new builds.
+  if (normalizedPath.startsWith('assets/')) {
+    return 'public, max-age=31536000, immutable';
+  }
+
+  return 'no-cache';
 }
 
 async function readJsonBody(request) {

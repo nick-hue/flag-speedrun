@@ -29,6 +29,7 @@ function App() {
   const [leaderboardState, setLeaderboardState] = useState('idle')
   const [leaderboardMessage, setLeaderboardMessage] = useState('')
   const activeGameRef = useRef(null)
+  const startTimeRef = useRef(0)
 
   useEffect(() => {
     if (!hasStarted) {
@@ -36,8 +37,8 @@ function App() {
     }
 
     const timerId = window.setInterval(() => {
-      setElapsedCentiseconds((currentCentiseconds) => currentCentiseconds + 1)
-    }, 10)
+      setElapsedCentiseconds(getElapsedCentiseconds(startTimeRef.current))
+    }, 50)
 
     return () => window.clearInterval(timerId)
   }, [hasStarted])
@@ -80,6 +81,7 @@ function App() {
 
       const nextTargetQueue = getRandomFlags(countryCodes, selectedRounds)
 
+      startTimeRef.current = Date.now()
       setActiveSessionId(payload.session.id)
       setTargetQueue(nextTargetQueue)
       setNextRound(nextTargetQueue[0])
@@ -142,7 +144,7 @@ function App() {
       setRandomFlag(null)
       setCompletedRun({
         rounds: selectedRounds,
-        timeCentiseconds: elapsedCentiseconds,
+        timeCentiseconds: getElapsedCentiseconds(startTimeRef.current),
         correctAnswers: finalCorrectAnswers,
       })
       return
@@ -405,6 +407,10 @@ function getCountryName(code, countryList) {
   const country = countryList.find((entry) => entry.code === code)
 
   return country ? country.name : code
+}
+
+function getElapsedCentiseconds(startTime) {
+  return Math.floor((Date.now() - startTime) / 10)
 }
 
 function formatTime(totalCentiseconds) {
